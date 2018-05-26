@@ -8,7 +8,6 @@ import org.apache.hadoop.mapreduce.Mapper;
 
 import bd_ex2_gid.bd_ex2_aid.model.ProductYearTuple;
 import bd_ex2_gid.bd_ex2_aid.model.SumAverageTuple;
-import bd_ex2_gid.bd_ex2_aid.utils.MyUtils;
 
 public class MapperPhase extends Mapper<Object, Text, ProductYearTuple, SumAverageTuple>{
 
@@ -22,7 +21,7 @@ public class MapperPhase extends Mapper<Object, Text, ProductYearTuple, SumAvera
 		String line = value.toString();
 		String[] splittedLine = line.split(",");
 		try {
-			Text textYear = MyUtils.getYearFromDate(splittedLine[REVIEW_TIME_INDEX]);
+			Text textYear = this.getYearFromDate(splittedLine[REVIEW_TIME_INDEX]);
 			if(textYear.compareTo(MIN_YEAR) >= 0 && textYear.compareTo(MAX_YEAR) <= 0) {
 				Text productId = new Text(splittedLine[PRODUCT_ID_INDEX]);
 				DoubleWritable reviewScore = new DoubleWritable(Double.valueOf(splittedLine[REVIEW_SCORE_INDEX]));
@@ -38,4 +37,8 @@ public class MapperPhase extends Mapper<Object, Text, ProductYearTuple, SumAvera
 		}
 	}
 	
+	private Text getYearFromDate(String yyyyMMdd) {
+		 //String year = new SimpleDateFormat("yyyy").format(new Date(Long.valueOf(unixDatetime) * 1000L));
+		 return new Text(yyyyMMdd.split("-")[0]);
+	}
 }

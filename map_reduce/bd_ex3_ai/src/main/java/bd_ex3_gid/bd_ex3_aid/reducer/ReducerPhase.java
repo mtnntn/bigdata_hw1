@@ -2,11 +2,11 @@ package bd_ex3_gid.bd_ex3_aid.reducer;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
@@ -14,59 +14,51 @@ import org.apache.hadoop.mapreduce.Reducer;
 
 public class ReducerPhase extends Reducer<Text, Text, Text, IntWritable> {
 
-	// prodId -> list(userId)
-	private Map<String, List<String>> productUsers = new TreeMap<String, List<String>>();	
-	// userId -> list(prodId)
-	private Map<String, List<String>> userProducts = new TreeMap<String, List<String>>();
-	// prodId -> list(userId)
-	private Map<String, Set<String>> itemCouples = new TreeMap<String, Set<String>>();
+	private static final String SEPARATOR = "-";
+	private static final String OUT_SEPARATOR ="\t";
+	
+	// product1-product2 -> # of common users 
+	private Map<String, Integer> itemCouples = new TreeMap<String, Integer>();	
 	
 	@Override
-	public void reduce(Text productId, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-		for(Text t : values) {
-			this.addUserToProductUsers(productId.toString(), t.toString());
-			this.addProductToUserProducts(t.toString(), productId.toString());
+	public void reduce(Text userId, Iterable<Text> products, Context context) throws IOException, InterruptedException {
+		
+		Set<String> alreadyAdded = new HashSet<String>(); // Allow to filter duplicates for the current user.
+		
+		List<String> prods = new ArrayList<String>();	// List of the products for the user.
+		for(Text s : products)
+			prods.add(s.toString());
+						
+		for(String product1 : prods) {	// Match each product in the list of products, with the others products of the list.
+			for(String product2: prods) {
+				if(! product1.equals(product2) ) {	
+					String key = this.getKey(product1, product2);
+					if(!alreadyAdded.contains(key)) {
+						Integer val = itemCouples.get(key);
+						if(val == null)
+							val = 0;
+						val += 1;
+						itemCouples.put(key, val);
+						alreadyAdded.add(key);
+					}	
+				}
+			}
 		}
+	}
+	
+	private String getKey(String product1, String product2) {
+		String key = product1.concat(SEPARATOR).concat(product2);
+		if(product1.compareTo(product2) > 0)
+			key = product2.concat(SEPARATOR).concat(product1);
+		return key;
 	}
 	
 	@Override
 	protected void cleanup(Context context) throws IOException, InterruptedException {			
-		for(String product : productUsers.keySet()) {
-			for(String user : productUsers.get(product)) {
-				for(String userProduct : this.userProducts.get(user)) {
-					if(!userProduct.equals(product)) {
-						String pkey1 = product + "-" + userProduct;
-						String pkey2 = userProduct + "-" + product;
-						String pkey = (product.compareTo(userProduct) <= 0)? pkey1 : pkey2 ;
-						if(! itemCouples.containsKey(pkey)) {
-							itemCouples.put(pkey, new TreeSet<String>());
-						}
-						itemCouples.get(pkey).add(user);
-					}
-				}
-			}
-		}
-		for(String i : itemCouples.keySet()) {
-			String[] splitted = i.split("-");
-			context.write(new Text(splitted[0] + "\t" + splitted[1]), new IntWritable(itemCouples.get(i).size()));
-		}
-	}
-
-	private void addProductToUserProducts(String userID, String productID) {
-		addToMap(userID, productID, this.userProducts);
-	}
-	
-	private void addUserToProductUsers(String productID, String userID) {
-		addToMap(productID, userID, this.productUsers);
-	}
-	
-	private void addToMap(String k, String v, Map<String, List<String>> m) {
-		List<String> list = m.get(k);
-		if(list == null)
-			list = new ArrayList<String>();
-		if(list.indexOf(v)==-1) {
-			list.add(v);
-			m.put(k, list);
+		for(String key : itemCouples.keySet()) {
+			String[] splitted = key.split(SEPARATOR);
+			String outputKey = splitted[0].concat(OUT_SEPARATOR).concat(splitted[1]);
+			context.write(new Text(outputKey), new IntWritable(itemCouples.get(key)));
 		}
 	}
 	

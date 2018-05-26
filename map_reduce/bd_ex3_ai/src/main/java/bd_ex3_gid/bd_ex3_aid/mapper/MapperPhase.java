@@ -16,7 +16,7 @@ public class MapperPhase extends Mapper<Object, Text, Text, Text>{
 		try {
 			String productID = splittedLine[PRODUCTID_INDEX];	
 			String userID = splittedLine[USERID_INDEX];	
-			context.write(new Text(productID), new Text(userID));
+			context.write(new Text(userID), new Text(productID));
 		}
 		catch (Exception e) {
 			System.out.println("\n ------------------ \n");

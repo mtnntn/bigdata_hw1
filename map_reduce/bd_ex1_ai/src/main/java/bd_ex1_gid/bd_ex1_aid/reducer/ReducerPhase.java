@@ -12,11 +12,12 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
 import bd_ex1_gid.bd_ex1_aid.Esercizio1;
+import bd_ex1_gid.bd_ex1_aid.model.WordFrequencyTuple;
 import bd_ex1_gid.bd_ex1_aid.model.YearWordTuple;
 
-public class ReducerPhase extends Reducer<YearWordTuple, IntWritable, YearWordTuple, IntWritable> {
+public class ReducerPhase extends Reducer<YearWordTuple, IntWritable, Text, WordFrequencyTuple> {
 
-	private Map<Text, List<YearWordTuple>> countMap = new TreeMap<Text, List<YearWordTuple>>();
+	private Map<String, List<WordFrequencyTuple>> countMap = new TreeMap<String, List<WordFrequencyTuple>>();
 
 	@Override
 	public void reduce(YearWordTuple wordKey, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
@@ -24,40 +25,42 @@ public class ReducerPhase extends Reducer<YearWordTuple, IntWritable, YearWordTu
 //		System.out.println("\n ------------------ \n");
 //		System.out.println(" Analizing word: ( " + wordKey + ", " + wordKey.getFrequency() + ") ");
 
-		IntWritable frequencyForWord = new IntWritable(0);
+		String currentYear = wordKey.getYear().toString();
+		String currentWord = wordKey.getWord().toString();
+		WordFrequencyTuple currentWordEntry = new WordFrequencyTuple(currentWord);
+		
 		for (IntWritable val : values) {
-			frequencyForWord.set(frequencyForWord.get() + val.get());
+			currentWordEntry.increaseFrequency(val.get());
 		}
-		YearWordTuple currentWordEntry = new YearWordTuple(wordKey.getYear(), wordKey.getWord(), frequencyForWord);
-
+		
 //		System.out.println(" New Frequency for word: ( " + currentWordEntry + " " + currentWordEntry.getFrequency() + ") ");
 //		System.out.println("\n ------------------ \n");
 
-		List<YearWordTuple> wordsEntryForYear = countMap.get(currentWordEntry.getYear());
+		List<WordFrequencyTuple> wordsEntryForYear = countMap.get(currentYear);
 		if(wordsEntryForYear == null) {
-			wordsEntryForYear = new ArrayList<YearWordTuple>();				
+			wordsEntryForYear = new ArrayList<WordFrequencyTuple>();				
 		}
 		wordsEntryForYear.add(currentWordEntry);	
 //		System.out.println("\n ------------------ Words for the year -------------------- \n");
 //		for(WordEntry w : wordsEntryForYear)
 //			System.out.println("\n -----> Word: ( " + w + ", " + w.frequency + ") ");
 //		System.out.println("\n ----------------------------------------------------------- \n");		
-		countMap.put(currentWordEntry.getYear(), wordsEntryForYear);	
+		countMap.put(currentYear, wordsEntryForYear);	
 	
 	}
 	
 	@Override
 	protected void cleanup(Context context) throws IOException, InterruptedException {		
 		
-		for(Text year : countMap.keySet()){
+		for(String year : countMap.keySet()){
 			int counter = 0;
-			List<YearWordTuple> wordsForTheYear = countMap.get(year);
+			List<WordFrequencyTuple> wordsForTheYear = countMap.get(year);
 			Collections.sort(wordsForTheYear);
-			for (YearWordTuple wordInCurrentYear : wordsForTheYear) {
+			for (WordFrequencyTuple wordInCurrentYear : wordsForTheYear) {
 				if (counter++ == Esercizio1.TOP_N) {
 					break;
 				}
-				context.write(wordInCurrentYear, wordInCurrentYear.getFrequency());
+				context.write(new Text(year), wordInCurrentYear);
 			}
 		}
 	}
